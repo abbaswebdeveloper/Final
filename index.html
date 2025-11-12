@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Metadata Microservice</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+        
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 20px;
+            border: 3px dashed #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+            color: #666;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .file-input-label:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .file-input-label.has-file {
+            border-color: #28a745;
+            background: #f0fff4;
+            color: #28a745;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: transform 0.2s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #e9f7ef;
+            border: 2px solid #d4edda;
+            border-radius: 10px;
+            display: none;
+            text-align: left;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        
+        .result h3 {
+            color: #155724;
+            margin-bottom: 10px;
+        }
+        
+        .result.error h3 {
+            color: #721c24;
+        }
+        
+        .metadata-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .metadata-item strong {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📁 File Metadata Microservice</h1>
+        <p class="subtitle">Upload a file to get its metadata information</p>
+        
+        <form class="upload-form" id="uploadForm" enctype="multipart/form-data">
+            <div class="file-input-wrapper">
+                <input type="file" name="upfile" id="upfile" required>
+                <label for="upfile" class="file-input-label" id="fileLabel">
+                    📎 Choose a file or drag it here
+                </label>
+            </div>
+            <button type="submit">📤 Upload & Analyze</button>
+        </form>
+
+        <div class="result" id="result">
+            <h3>📊 File Metadata</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // File input label update
+        document.getElementById('upfile').addEventListener('change', function(e) {
+            const label = document.getElementById('fileLabel');
+            if (this.files.length > 0) {
+                label.textContent = '✅ ' + this.files[0].name;
+                label.classList.add('has-file');
+            } else {
+                label.textContent = '📎 Choose a file or drag it here';
+                label.classList.remove('has-file');
+            }
+        });
+
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('upfile');
+            const resultDiv = document.getElementById('result');
+            const resultContent = document.getElementById('resultContent');
+            const submitButton = this.querySelector('button');
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select a file first!');
+                return;
+            }
+            
+            const originalButtonText = submitButton.textContent;
+            submitButton.textContent = '⏳ Uploading...';
+            submitButton.disabled = true;
+            
+            try {
+                const formData = new FormData();
+                formData.append('upfile', fileInput.files[0]);
+                
+                const response = await fetch('/api/fileanalyse', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    resultDiv.className = 'result error';
+                    resultContent.innerHTML = `<p><strong>Error:</strong> ${data.error}</p>`;
+                } else {
+                    resultDiv.className = 'result';
+                    resultContent.innerHTML = `
+                        <div class="metadata-item">
+                            <strong>File Name:</strong> ${data.name}
+                        </div>
+                        <div class="metadata-item">
+                            <strong>File Type:</strong> ${data.type}
+                        </div>
+                        <div class="metadata-item">
+                            <strong>File Size:</strong> ${data.size.toLocaleString()} bytes
+                        </div>
+                    `;
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultContent.innerHTML = `<p><strong>Network Error:</strong> ${error.message}</p>`;
+                resultDiv.style.display = 'block';
+            } finally {
+                submitButton.textContent = originalButtonText;
+                submitButton.disabled = false;
+            }
+        });
+
+        // Drag and drop functionality
+        const fileInput = document.getElementById('upfile');
+        const label = document.getElementById('fileLabel');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            label.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            label.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            label.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            label.style.borderColor = '#667eea';
+            label.style.background = '#f0f4ff';
+        }
+        
+        function unhighlight() {
+            label.style.borderColor = '';
+            label.style.background = '';
+        }
+        
+        label.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            
+            // Trigger change event
+            const event = new Event('change');
+            fileInput.dispatchEvent(event);
+        }
+    </script>
+</body>
+</html>
